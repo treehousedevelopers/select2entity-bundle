@@ -2,6 +2,7 @@
 
 namespace Tetranz\Select2EntityBundle\Form\DataTransformer;
 
+use Doctrine\ORM\UnexpectedResultException;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\Form\DataTransformerInterface;
 use Symfony\Component\Form\Exception\TransformationFailedException;
@@ -17,29 +18,23 @@ use Symfony\Component\PropertyAccess\PropertyAccessor;
  */
 class EntityToPropertyTransformer implements DataTransformerInterface
 {
-    /** @var ObjectManager */
-    protected $em;
-    /** @var  string */
-    protected $className;
-    /** @var  string */
-    protected $textProperty;
-    /** @var  string */
-    protected $primaryKey;
-    /** @var string  */
-    protected $newTagPrefix;
-    /** @var string  */
-    protected $newTagText;
-    /** @var PropertyAccessor */
-    protected $accessor;
 
-    /**
-     * @param ObjectManager $em
-     * @param string                 $class
-     * @param string|null            $textProperty
-     * @param string                 $primaryKey
-     * @param string                 $newTagPrefix
-     */
-    public function __construct(ObjectManager $em, $class, $textProperty = null, $primaryKey = 'id', $newTagPrefix = '__', $newTagText = ' (NEW)')
+    private ObjectManager $em;
+    private string $className;
+    private ?string $textProperty;
+    private string $primaryKey;
+    private string $newTagPrefix;
+    private string $newTagText;
+    private PropertyAccessor $accessor;
+
+    public function __construct(
+        ObjectManager $em,
+        string $class,
+        ?string $textProperty = null,
+        string $primaryKey = 'id',
+        string $newTagPrefix = '__',
+        string $newTagText = ' (NEW)'
+    )
     {
         $this->em = $em;
         $this->className = $class;
@@ -53,28 +48,28 @@ class EntityToPropertyTransformer implements DataTransformerInterface
     /**
      * Transform entity to array
      *
-     * @param mixed $entity
+     * @param mixed $value
      * @return array
      */
-    public function transform($entity)
+    public function transform(mixed $value): array
     {
         $data = array();
-        if (empty($entity)) {
+        if (empty($value)) {
             return $data;
         }
 
         $text = is_null($this->textProperty)
-            ? (string) $entity
-            : $this->accessor->getValue($entity, $this->textProperty);
+            ? (string) $value
+            : $this->accessor->getValue($value, $this->textProperty);
 
-        if ($this->em->contains($entity)) {
-            $value = (string) $this->accessor->getValue($entity, $this->primaryKey);
+        if ($this->em->contains($value)) {
+            $v = (string) $this->accessor->getValue($value, $this->primaryKey);
         } else {
-            $value = $this->newTagPrefix . $text;
+            $v = $this->newTagPrefix . $text;
             $text = $text.$this->newTagText;
         }
 
-        $data[$value] = $text;
+        $data[$v] = $text;
 
         return $data;
     }
@@ -85,7 +80,7 @@ class EntityToPropertyTransformer implements DataTransformerInterface
      * @param string $value
      * @return mixed|null|object
      */
-    public function reverseTransform($value)
+    public function reverseTransform($value): mixed
     {
         if (empty($value)) {
             return null;
@@ -110,7 +105,7 @@ class EntityToPropertyTransformer implements DataTransformerInterface
                     ->getQuery()
                     ->getSingleResult();
             }
-            catch (\Doctrine\ORM\UnexpectedResultException $ex) {
+            catch (UnexpectedResultException $ex) {
                 // this will happen if the form submits invalid data
                 throw new TransformationFailedException(sprintf('The choice "%s" does not exist or is not unique', $value));
             }
