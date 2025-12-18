@@ -2,6 +2,8 @@
 
 namespace Tetranz\Select2EntityBundle\Service;
 
+use Doctrine\ORM\NonUniqueResultException;
+use Doctrine\ORM\NoResultException;
 use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityRepository;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -9,35 +11,28 @@ use Symfony\Component\Form\FormTypeInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 
-class AutocompleteService
+readonly class AutocompleteService
 {
-    /**
-     * @var FormFactoryInterface
-     */
-    private $formFactory;
-
-    /**
-     * @var ManagerRegistry
-     */
-    private $doctrine;
-
     /**
      * @param FormFactoryInterface $formFactory
      * @param ManagerRegistry      $doctrine
      */
-    public function __construct(FormFactoryInterface $formFactory, ManagerRegistry $doctrine)
+    public function __construct(
+        private FormFactoryInterface $formFactory,
+        private ManagerRegistry      $doctrine
+    )
     {
-        $this->formFactory = $formFactory;
-        $this->doctrine = $doctrine;
-    }   
+    }
 
     /**
-     * @param Request                  $request
+     * @param Request $request
      * @param string|FormTypeInterface $type
      *
      * @return array
+     * @throws NoResultException
+     * @throws NonUniqueResultException
      */
-    public function getAutocompleteResults(Request $request, $type)
+    public function getAutocompleteResults(Request $request, FormTypeInterface|string $type): array
     {
         $form = $this->formFactory->create($type);
         $fieldOptions = $form->get($request->get('field_name'))->getConfig()->getOptions();
